@@ -5,13 +5,18 @@ import tile_types
 
 if TYPE_CHECKING:
     from entity import Entity
+    from engine import Engine
 
 
 class GameMap:
-    def __init__(self, width: int, height: int, entities: MutableSet[Entity]):
+    def __init__(
+        self, width: int, height: int, entities: MutableSet[Entity], engine: Engine
+    ):
         self.width, self.height = width, height
         self.tiles = np.full((width, height), fill_value=tile_types.wall, order="F")
         self.entities = entities
+        self.engine = engine
+
         self.visible = np.full(
             (width, height), fill_value=False, order="F"
         )  # Tiles the player can currently see

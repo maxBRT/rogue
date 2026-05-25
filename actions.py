@@ -1,8 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, Tuple
 
-import entity
-
 if TYPE_CHECKING:
     from engine import Engine
     from entity import Entity

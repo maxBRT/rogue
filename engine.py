@@ -1,35 +1,25 @@
-from typing import Set, Iterable, Any
+from typing import Set, Iterable, Any, TYPE_CHECKING
 
 import tcod
 from tcod.context import Context
 from tcod.console import Console
-from entity import Entity
-from game_map import GameMap
 from tcod.map import compute_fov
 from input_handlers import EventHandler
 
+if TYPE_CHECKING:
+    from entity import Entity
+    from game_map import GameMap
+
 
 class Engine:
+    game_map: GameMap
+
     def __init__(
         self,
-        event_handler: EventHandler,
-        game_map: GameMap,
         player: Entity,
     ):
-        self.event_handler = event_handler
-        self.game_map = game_map
+        self.event_handler = EventHandler(self)
         self.player = player
-        self.update_fov()
-
-    def handle_events(self, events: Iterable[Any]) -> None:
-        for event in events:
-            action = self.event_handler.dispatch(event)
-
-            if action is None:
-                continue
-
-            action.perform(self, self.player)
-            self.update_fov()
 
     def handle_enemy_turns(self) -> None:
         for entity in self.game_map.entities - {self.player}:

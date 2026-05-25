@@ -25,6 +25,18 @@ class EventHandler:
             case _:
                 return None
 
+    def handle_events(self) -> None:
+        for event in tcod.event.wait():
+            action = self.dispatch(event)
+
+            if action is None:
+                continue
+
+            action.perform()
+
+            self.engine.handle_enemy_turns()
+            self.engine.update_fov()  # Update the FOV before the players next action.
+
     def ev_quit(self):
         raise SystemExit()
 
@@ -33,15 +45,17 @@ class EventHandler:
 
         key = event.sym
 
+        player = self.engine.player
+
         if key == tcod.event.KeySym.UP or key == tcod.event.KeySym.K:
-            action = BumpAction(dx=0, dy=-1)
+            action = BumpAction(player, dx=0, dy=-1)
         elif key == tcod.event.KeySym.DOWN or key == tcod.event.KeySym.J:
-            action = BumpAction(dx=0, dy=1)
+            action = BumpAction(player, dx=0, dy=1)
         elif key == tcod.event.KeySym.LEFT or key == tcod.event.KeySym.H:
-            action = BumpAction(dx=-1, dy=0)
+            action = BumpAction(player, dx=-1, dy=0)
         elif key == tcod.event.KeySym.RIGHT or key == tcod.event.KeySym.L:
-            action = BumpAction(dx=1, dy=0)
+            action = BumpAction(player, dx=1, dy=0)
         elif key == tcod.event.KeySym.ESCAPE:
-            action = EscapeAction()
+            action = EscapeAction(player)
 
         return action
