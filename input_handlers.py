@@ -1,11 +1,17 @@
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 import tcod.event
 
 from actions import Action, BumpAction, EscapeAction
 
+if TYPE_CHECKING:
+    from engine import Engine
+
 
 class EventHandler:
+    def __init__(self, engine: Engine):
+        self.engine = engine
+
     def dispatch(self, event: tcod.event.Event) -> Optional[Action]:
         """
         Takes the raw event and routes it to the correct method.
@@ -27,13 +33,13 @@ class EventHandler:
 
         key = event.sym
 
-        if key == tcod.event.KeySym.UP:
+        if key == tcod.event.KeySym.UP or key == tcod.event.KeySym.K:
             action = BumpAction(dx=0, dy=-1)
-        elif key == tcod.event.KeySym.DOWN:
+        elif key == tcod.event.KeySym.DOWN or key == tcod.event.KeySym.J:
             action = BumpAction(dx=0, dy=1)
-        elif key == tcod.event.KeySym.LEFT:
+        elif key == tcod.event.KeySym.LEFT or key == tcod.event.KeySym.H:
             action = BumpAction(dx=-1, dy=0)
-        elif key == tcod.event.KeySym.RIGHT:
+        elif key == tcod.event.KeySym.RIGHT or key == tcod.event.KeySym.L:
             action = BumpAction(dx=1, dy=0)
         elif key == tcod.event.KeySym.ESCAPE:
             action = EscapeAction()
