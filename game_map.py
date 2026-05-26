@@ -1,7 +1,8 @@
 import numpy as np
 from tcod.console import Console
-from typing import TYPE_CHECKING, MutableSet, Optional
+from typing import TYPE_CHECKING, MutableSet, Optional, Iterator
 import tile_types
+from entity import Actor
 
 if TYPE_CHECKING:
     from entity import Entity
@@ -24,6 +25,15 @@ class GameMap:
             (width, height), fill_value=False, order="F"
         )  # Tiles the player has seen before
 
+    @property
+    def actors(self) -> Iterator[Actor]:
+        """Iterate over this maps living actors."""
+        yield from (
+            entity
+            for entity in self.entities
+            if isinstance(entity, Actor) and entity.is_alive
+        )
+
     def in_bounds(self, x: int, y: int) -> bool:
         """Return True if x and y are inside of the bounds of this map."""
         return 0 <= x < self.width and 0 <= y < self.height
@@ -41,6 +51,13 @@ class GameMap:
 
         return None
 
+    def get_actor_at_location(self, x: int, y: int) -> Optional[Actor]:
+        for actor in self.actors:
+            if actor.x == x and actor.y == y:
+                return actor
+
+        return None
+
     def render(self, console: Console) -> None:
         """
         Renders the map.
@@ -55,6 +72,10 @@ class GameMap:
             default=tile_types.SHROUD,
         )
 
-        for entity in self.entities:
+        entities_sorted_for_rendering = sorted(
+            self.entities, key=lambda x: x.render_order.value
+        )
+
+        for entity in entities_sorted_for_rendering:
             if self.visible[entity.x, entity.y]:
                 console.print(entity.x, entity.y, entity.char, fg=entity.color)

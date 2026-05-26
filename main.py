@@ -3,7 +3,6 @@ import tcod
 
 from engine import Engine
 import entities_factories
-from input_handlers import EventHandler
 from procgen import generate_dungeon
 
 
