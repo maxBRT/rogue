@@ -21,7 +21,7 @@ def main() -> None:
     tileset = tcod.tileset.load_tilesheet("ascii.png", 32, 8, tcod.tileset.CHARMAP_TCOD)
     player = copy.deepcopy(entities_factories.player)
     engine = Engine(player)
-    engine.game_map = generate_dungeon(
+    engine.gamemap = generate_dungeon(
         max_rooms=max_rooms,
         room_min_size=room_min_size,
         room_max_size=room_max_size,

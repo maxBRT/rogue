@@ -54,16 +54,16 @@ class Entity:
         gamemap.entities.add(clone)
         return clone
 
-    def place(self, x: int, y: int, game_map: Optional[GameMap] = None) -> None:
+    def place(self, x: int, y: int, gamemap: Optional[GameMap] = None) -> None:
         """Place this entity at a new location.  Handles moving across GameMaps."""
         self.x = x
         self.y = y
-        if game_map:
+        if gamemap:
             if hasattr(self, "parent"):  # Possibly uninitialized.
                 if self.parent is self.gamemap:
                     self.gamemap.entities.remove(self)
-            self.parent = game_map
-            game_map.entities.add(self)
+            self.parent = gamemap
+            gamemap.entities.add(self)
 
     def move(self, dx: int, dy: int) -> None:
         # Move the entity by a given amount

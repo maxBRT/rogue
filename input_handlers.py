@@ -98,7 +98,7 @@ class MainGameEventHandler(EventHandler):
             self.engine.update_fov()  # Update the FOV before the players next action.
 
     def ev_mousemotion(self, event: tcod.event.MouseMotion) -> None:
-        if self.engine.game_map.in_bounds(
+        if self.engine.gamemap.in_bounds(
             event.integer_position.x, event.integer_position.y
         ):
             self.engine.mouse_location = (

@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class Engine:
-    game_map: GameMap
+    gamemap: GameMap
 
     def __init__(
         self,
@@ -27,24 +27,24 @@ class Engine:
         self.mouse_location: Tuple[int, int] = (0, 0)
 
     def handle_enemy_turns(self) -> None:
-        for entity in set(self.game_map.actors) - {self.player}:
+        for entity in set(self.gamemap.actors) - {self.player}:
             if entity.ai:
                 entity.ai.perform()
 
     def update_fov(self):
         """Recompute the visible area based on the players point of view."""
-        self.game_map.visible[:] = compute_fov(
-            self.game_map.tiles["transparent"],
+        self.gamemap.visible[:] = compute_fov(
+            self.gamemap.tiles["transparent"],
             (self.player.x, self.player.y),
             radius=8,
             algorithm=tcod.FOV_SHADOW,
         )
 
         # If a tile is "visible" it should be added to "explored".
-        self.game_map.explored |= self.game_map.visible
+        self.gamemap.explored |= self.gamemap.visible
 
     def render(self, console: Console) -> None:
-        self.game_map.render(console=console)
+        self.gamemap.render(console=console)
         render_bar(
             console,
             self.player.fighter.hp,

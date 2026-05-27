@@ -15,7 +15,7 @@ class Action:
 
     @property
     def engine(self) -> Engine:
-        return self.entity.game_map.engine
+        return self.entity.gamemap.engine
 
     def perform(self):
         """Perform this action with the objects needed to determine its scope.
@@ -53,12 +53,12 @@ class ActionWithDirection(Action):
 
     @property
     def blocking_entity(self) -> Optional[Entity]:
-        return self.engine.game_map.get_blocking_entity_at_location(*self.dest_xy)
+        return self.engine.gamemap.get_blocking_entity_at_location(*self.dest_xy)
 
     @property
     def target_actor(self) -> Optional[Actor]:
         """Return the actor at this actions destination."""
-        return self.engine.game_map.get_actor_at_location(*self.dest_xy)
+        return self.engine.gamemap.get_actor_at_location(*self.dest_xy)
 
     def perform(self):
         raise NotImplementedError()
@@ -94,13 +94,13 @@ class MovementAction(ActionWithDirection):
     def perform(self):
         dest_x, dest_y = self.dest_xy
 
-        if not self.engine.game_map.in_bounds(dest_x, dest_y):
+        if not self.engine.gamemap.in_bounds(dest_x, dest_y):
             return  # Destination is not in bounds
 
-        if not self.engine.game_map.tiles["walkable"][dest_x, dest_y]:
+        if not self.engine.gamemap.tiles["walkable"][dest_x, dest_y]:
             return  # Destination is not walkable
 
-        if self.engine.game_map.get_blocking_entity_at_location(dest_x, dest_y):
+        if self.engine.gamemap.get_blocking_entity_at_location(dest_x, dest_y):
             return  # Destination blocked by an entity
 
         self.entity.move(self.dx, self.dy)

@@ -22,9 +22,9 @@ class BaseAI(Action):
         If there is no valid path then returns an empty list.
         """
         # Copy the walkable array.
-        cost = np.array(self.entity.game_map.tiles["walkable"], dtype=np.int8)
+        cost = np.array(self.entity.gamemap.tiles["walkable"], dtype=np.int8)
 
-        for entity in self.entity.game_map.entities:
+        for entity in self.entity.gamemap.entities:
             # Check that an enitiy blocks movement and the cost isn't zero (blocking.)
             if entity.blocks_movement and cost[entity.x, entity.y]:
                 # Add to the cost of a blocked position.
@@ -57,7 +57,7 @@ class HostileEnemy(BaseAI):
         dy = target.y - self.entity.y
         distance = max(abs(dx), abs(dy))  # Chebyshev distance.
 
-        if self.engine.game_map.visible[self.entity.x, self.entity.y]:
+        if self.engine.gamemap.visible[self.entity.x, self.entity.y]:
             if distance <= 1:
                 return MeleeAction(self.entity, dx, dy).perform()
 
