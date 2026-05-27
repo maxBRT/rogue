@@ -1,10 +1,12 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Tuple
 
 import tcod
-from tcod.context import Context
 from tcod.console import Console
 from tcod.map import compute_fov
 from input_handlers import MainGameEventHandler
+import colors
+from message_log import MessageLog
+from render_functions import render_bar, render_names_at_mouse_location
 
 if TYPE_CHECKING:
     from entity import Actor
@@ -20,7 +22,9 @@ class Engine:
         player: Actor,
     ):
         self.event_handler: EventHandler = MainGameEventHandler(self)
+        self.message_log = MessageLog()
         self.player = player
+        self.mouse_location: Tuple[int, int] = (0, 0)
 
     def handle_enemy_turns(self) -> None:
         for entity in set(self.game_map.actors) - {self.player}:
@@ -39,13 +43,16 @@ class Engine:
         # If a tile is "visible" it should be added to "explored".
         self.game_map.explored |= self.game_map.visible
 
-    def render(self, console: Console, context: Context) -> None:
+    def render(self, console: Console) -> None:
         self.game_map.render(console=console)
-        console.print(
-            1,
-            47,
-            f"HP: {self.player.fighter.hp}/{self.player.fighter.max_hp}",
-        )
-
-        context.present(console)
-        console.clear()
+        render_bar(
+            console,
+            self.player.fighter.hp,
+            self.player.fighter.max_hp,
+            20,
+            colors.bar_empty,
+            colors.bar_filled,
+            colors.bar_text,
+        )  # Player HP bar
+        self.message_log.render(console=console, x=21, y=45, width=40, height=5)
+        render_names_at_mouse_location(console=console, engine=self)
