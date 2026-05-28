@@ -1,12 +1,22 @@
+import re
 from typing import Optional, TYPE_CHECKING
-
+from const import SCREEN_WIDTH, SCREEN_HEIGHT
 import tcod.event
 
-from actions import Action, BumpAction, EscapeAction, WaitAction
+from actions import (
+    Action,
+    BumpAction,
+    DropItemAction,
+    ExitAction,
+    PickupAction,
+    WaitAction,
+)
+import colors
+import exceptions
 
 if TYPE_CHECKING:
     from engine import Engine
-
+    from entity import Item
 
 MOVE_KEYS = {
     # Arrow keys.
@@ -44,6 +54,8 @@ WAIT_KEYS = {
     tcod.event.KeySym.CLEAR,
 }
 
+PICK_UP_KEYS = {tcod.event.KeySym.G}
+
 
 class EventHandler:
     def __init__(self, engine: Engine):
@@ -59,19 +71,41 @@ class EventHandler:
                 return self.ev_keydown(event)
             case tcod.event.MouseMotion():
                 return self.ev_mousemotion(event)
+            case tcod.event.MouseButtonDown():
+                return self.ev_mousebuttondown(event)
             case _:
                 return None
 
-    def handle_events(self, context: tcod.context.Context) -> None:
-        for event in tcod.event.wait():
-            event = context.convert_event(event)
-            self.dispatch(event)
+    def handle_events(self, event: tcod.event.Event) -> None:
+        self.handle_action(self.dispatch(event))
+
+    def handle_action(self, action: Optional[Action]) -> bool:
+        """Handle actions returned from event methods.
+
+        Returns True if the action will advance a turn.
+        """
+        if action is None:
+            return False
+
+        try:
+            action.perform()
+        except exceptions.Impossible as exc:
+            self.engine.message_log.add_message(exc.args[0], colors.impossible)
+            return False  # Skip enemy turn on exceptions.
+
+        self.engine.handle_enemy_turns()
+
+        self.engine.update_fov()
+        return True
 
     def ev_keydown(self, event: tcod.event.KeyDown) -> Optional[Action]:
-        raise NotImplementedError()
+        pass
 
     def ev_mousemotion(self, event: tcod.event.MouseMotion) -> None:
-        raise NotImplementedError()
+        pass
+
+    def ev_mousebuttondown(self, event: tcod.event.MouseButtonDown) -> Optional[Action]:
+        pass
 
     def ev_quit(self, event: tcod.event.Quit) -> Optional[Action]:
         raise SystemExit()
@@ -80,22 +114,164 @@ class EventHandler:
         self.engine.render(console)
 
 
+class AskUserEventHandler(EventHandler):
+    """Handles user input for actions which require special input."""
+
+    def handle_action(self, action: Optional[Action]) -> bool:
+        """Return to the main event handler when a valid action was performed."""
+        if super().handle_action(action):
+            self.engine.event_handler = MainGameEventHandler(self.engine)
+            return True
+        return False
+
+    def ev_keydown(self, event: tcod.event.KeyDown) -> Optional[Action]:
+        """By default any key exits this input handler."""
+        if event.sym in {  # Ignore modifier keys.
+            tcod.event.K_LSHIFT,
+            tcod.event.K_RSHIFT,
+            tcod.event.K_LCTRL,
+            tcod.event.K_RCTRL,
+            tcod.event.K_LALT,
+            tcod.event.K_RALT,
+        }:
+            return None
+        return self.on_exit()
+
+    def ev_mousebuttondown(self, event: tcod.event.MouseButtonDown) -> Optional[Action]:
+        """By default any mouse click exits this input handler."""
+        return self.on_exit()
+
+    def on_exit(self) -> Optional[Action]:
+        """Called when the user is trying to exit or cancel an action.
+
+        By default this returns to the main event handler.
+        """
+        self.engine.event_handler = MainGameEventHandler(self.engine)
+        return None
+
+
+class ConfirmationEventHandler(AskUserEventHandler):
+    def __init__(self, engine: Engine, title: str, action):
+        super().__init__(engine)
+        self.TITLE = title
+        self.action = action
+
+    def on_render(self, console: tcod.Console) -> None:
+        super().on_render(console)
+        height = 4
+        width = len(self.TITLE) + 4
+        x = (SCREEN_WIDTH // 2) - (width // 2)
+        y = (SCREEN_HEIGHT // 2) - (height // 2)
+        console.draw_frame(
+            x=x,
+            y=y,
+            width=width,
+            height=height,
+            title=self.TITLE,
+            clear=True,
+            fg=(255, 255, 255),
+            bg=(0, 0, 0),
+        )
+
+        yes = "(y) Yes"
+        no = "(n) Cancel"
+        console.print(x + (width // 2) - (len(yes) + 4), y + 2, yes)
+        console.print(x + (width // 2) + 2, y + 2, no)
+
+    def ev_keydown(self, event: tcod.event.KeyDown) -> Optional[Action]:
+        key = event.sym
+
+        if key == tcod.event.KeySym.Y:
+            self.action.perform(self.engine.player)
+        elif key == tcod.event.KeySym.N:
+            self.on_exit()
+
+
+class InventoryEventHandler(AskUserEventHandler):
+    """This handler lets the user select an item.
+
+    What happens then depends on the subclass.
+    """
+
+    TITLE = "<missing title>"
+
+    def on_render(self, console: tcod.Console) -> None:
+        """Render an inventory menu, which displays the items in the inventory, and the letter to select them.
+        Will move to a different position based on where the player is located, so the player can always see where
+        they are.
+        """
+        super().on_render(console)
+        number_of_items_in_inventory = len(self.engine.player.inventory.items)
+
+        height = number_of_items_in_inventory + 2
+
+        if height <= 4:
+            height = 4
+        width = len(self.TITLE) + 4
+
+        x = SCREEN_WIDTH // 2 - width // 2
+        y = SCREEN_HEIGHT // 2 - height // 2
+
+        console.draw_frame(
+            x=x,
+            y=y,
+            width=width,
+            height=height,
+            title=self.TITLE,
+            clear=True,
+            fg=(255, 255, 255),
+            bg=(0, 0, 0),
+        )
+
+        if number_of_items_in_inventory > 0:
+            for i, item in enumerate(self.engine.player.inventory.items):
+                item_key = chr(ord("a") + i)
+                console.print(x + 1, y + i + 1, f"({item_key}) {item.name}")
+        else:
+            console.print(x + 1, y + 1, "(Empty)")
+
+    def ev_keydown(self, event: tcod.event.KeyDown) -> Optional[Action]:
+        player = self.engine.player
+        key = event.sym
+        index = key - tcod.event.K_a
+
+        if 0 <= index <= 26:
+            try:
+                selected_item = player.inventory.items[index]
+            except IndexError:
+                self.engine.message_log.add_message("Invalid entry.", colors.invalid)
+                return None
+            return self.on_item_selected(selected_item)
+        return super().ev_keydown(event)
+
+    def on_item_selected(self, item: Item) -> Optional[Action]:
+        """Called when the user selects a valid item."""
+        raise NotImplementedError()
+
+
+class InventoryActivateHandler(InventoryEventHandler):
+    """Handle using an inventory item."""
+
+    TITLE = "Select an item to use"
+
+    def on_item_selected(self, item: Item) -> Optional[Action]:
+        """Return the action for the selected item."""
+        return item.consumable.get_action(self.engine.player)
+
+
+class InventoryDropHandler(InventoryEventHandler):
+    """Handle dropping an inventory item."""
+
+    TITLE = "Select an item to drop"
+
+    def on_item_selected(self, item: Item) -> Optional[Action]:
+        """Drop this item."""
+        return DropItemAction(self.engine.player, item)
+
+
 class MainGameEventHandler(EventHandler):
     def __init__(self, engine: Engine):
         self.engine = engine
-
-    def handle_events(self, context: tcod.context.Context) -> None:
-        for event in tcod.event.wait():
-            event = context.convert_event(event)
-            action = self.dispatch(event)
-
-            if action is None:
-                continue
-
-            action.perform()
-
-            self.engine.handle_enemy_turns()
-            self.engine.update_fov()  # Update the FOV before the players next action.
 
     def ev_mousemotion(self, event: tcod.event.MouseMotion) -> None:
         if self.engine.gamemap.in_bounds(
@@ -117,33 +293,28 @@ class MainGameEventHandler(EventHandler):
             action = BumpAction(player, *MOVE_KEYS[key])
         elif key in WAIT_KEYS:
             action = WaitAction(player)
+        elif key in PICK_UP_KEYS:
+            action = PickupAction(player)
         elif key == tcod.event.KeySym.V:
             self.engine.event_handler = HistoryViewer(self.engine)
         elif key == tcod.event.KeySym.ESCAPE:
-            action = EscapeAction(player)
+            self.engine.event_handler = ConfirmationEventHandler(
+                self.engine, "Are you sure you want to quit?", ExitAction
+            )
+        elif key == tcod.event.KeySym.I:
+            self.engine.event_handler = InventoryActivateHandler(self.engine)
+        elif key == tcod.event.KeySym.D:
+            self.engine.event_handler = InventoryDropHandler(self.engine)
 
         return action
 
 
 class GameOverEventHandler(EventHandler):
-    def handle_events(self, context: tcod.context.Context) -> None:
-        for event in tcod.event.wait():
-            action = self.dispatch(event)
-
-            if action is None:
-                continue
-
-            action.perform()
 
     def ev_keydown(self, event: tcod.event.KeyDown) -> Optional[Action]:
-        action: Optional[Action] = None
-
         key = event.sym
-
         if key == tcod.event.K_ESCAPE:
-            action = EscapeAction(self.engine.player)
-
-        return action
+            raise SystemExit()
 
 
 CURSOR_Y_KEYS = {

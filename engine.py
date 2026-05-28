@@ -7,6 +7,7 @@ from input_handlers import MainGameEventHandler
 import colors
 from message_log import MessageLog
 from render_functions import render_bar, render_names_at_mouse_location
+import exceptions
 
 if TYPE_CHECKING:
     from entity import Actor
@@ -29,7 +30,10 @@ class Engine:
     def handle_enemy_turns(self) -> None:
         for entity in set(self.gamemap.actors) - {self.player}:
             if entity.ai:
-                entity.ai.perform()
+                try:
+                    entity.ai.perform()
+                except exceptions.Impossible:
+                    pass  # Ignore impossible action exceptions from AI.
 
     def update_fov(self):
         """Recompute the visible area based on the players point of view."""

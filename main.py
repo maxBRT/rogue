@@ -5,17 +5,20 @@ import colors
 from engine import Engine
 import entities_factories
 from procgen import generate_dungeon
+import traceback
+
+SCREEN_WIDTH = 80
+SCREEN_HEIGHT = 50
 
 
 def main() -> None:
-    screen_width = 80
-    screen_height = 50
 
     map_width = 80
     map_height = 45
     room_max_size = 10
     room_min_size = 6
     max_monster_per_room = 2
+    max_item_per_room = 2
     max_rooms = 30
 
     tileset = tcod.tileset.load_tilesheet("ascii.png", 32, 8, tcod.tileset.CHARMAP_TCOD)
@@ -26,6 +29,7 @@ def main() -> None:
         room_min_size=room_min_size,
         room_max_size=room_max_size,
         max_monster_per_room=max_monster_per_room,
+        max_item_per_room=max_item_per_room,
         map_width=map_width,
         map_height=map_height,
         engine=engine,
@@ -37,18 +41,25 @@ def main() -> None:
     )
 
     with tcod.context.new(
-        width=screen_width,
-        height=screen_height,
+        width=SCREEN_WIDTH,
+        height=SCREEN_HEIGHT,
         tileset=tileset,
         title="Yet Another Roguelike Tutorial",
         vsync=True,
     ) as context:
-        root_console = tcod.Console(screen_width, screen_height, order="F")
+        root_console = tcod.Console(SCREEN_WIDTH, SCREEN_HEIGHT, order="F")
         while True:
             root_console.clear()
             engine.event_handler.on_render(console=root_console)
             context.present(root_console)
-            engine.event_handler.handle_events(context)
+            try:
+                for event in tcod.event.wait():
+                    event = context.convert_event(event)
+                    engine.event_handler.handle_events(event)
+            except Exception:  # Handle exceptions in game.
+                traceback.print_exc()  # Print error to stderr.
+                # Then print the error to the message log.
+                engine.message_log.add_message(traceback.format_exc(), colors.error)
 
 
 if __name__ == "__main__":
